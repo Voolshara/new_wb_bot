@@ -1,6 +1,10 @@
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text, IDFilter
+from src.db.database import DB_new
+
+
+DBN = DB_new()
 
 
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -18,6 +22,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
         "/output - Вкл/Выкл логирование \n",
         reply_markup=types.ReplyKeyboardRemove()
     )
+    global DBN
+    await DBN.add_user(telegram_id=str(message.from_user.id), full_name=message.from_user.full_name)
 
 
 async def cmd_cancel(message: types.Message, state: FSMContext):

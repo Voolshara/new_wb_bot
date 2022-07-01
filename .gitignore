@@ -9,6 +9,8 @@ yarn-error.log*
 pnpm-debug.log*
 
 __pycache__/
+.pytest_cache/
+cookies*
 
 # Editor directories and files
 .idea
