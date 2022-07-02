@@ -2,11 +2,10 @@ from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 import re, requests
-from src.func.auth import set_phone, set_sms
 from src.db.database import DB_new, DB_get
 
 # keboards
-first_keyboard = ["Добавить аккаунт", "Удалить аккаунт", "Посмотреть добавленные аккаунты"]
+first_keyboard = ["Добавить аккаунт", "Удалить аккаунт", "Посмотреть добавленные аккаунты", "Меню"]
 repeat_sms_keyboard = ["Отправить код заново"]
 
 # states
@@ -48,11 +47,38 @@ async def auth_chosen(message: types.Message, state: FSMContext):
             await message.answer("Повторите попытку позже")
             await state.finish()
     elif message.text.lower() == "удалить аккаунт":
-        # await message.answer("2")
+        list_of_cookies = DBG.get_all_cookies(message.from_user.id)
+        if len(list_of_cookies) == 0:
+            await message.answer('У вас нет добавленных аккаунтов')
+            await Authorization.choose_command_below.set()
+            return
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for account in list_of_cookies:
+            keyboard.add(account)
+        await message.answer("Какой аккаунт вы хотите удалить?", reply_markup=keyboard)
         await Authorization.delete_account.set()
     elif message.text.lower() == "посмотреть добавленные аккаунты":
-        # await message.answer("3")
-        await Authorization.look_account.set()
+        list_of_cookies = DBG.get_all_cookies(message.from_user.id)
+        if len(list_of_cookies) > 0:
+            out = "Добавленные аккануты:\n"
+            for el in list_of_cookies:
+                out += "Тел: " + el + "\n"
+            await message.answer(out)
+            await Authorization.choose_command_below.set()
+            return
+        await message.answer('У вас нет добавленных аккаунтов')
+        await Authorization.choose_command_below.set()
+        # await Authorization.look_account.set()
+    elif message.text.lower() == "меню":
+        await message.answer(
+            "Список команда: \n" + 
+            "/start - Начало работы \n" +
+            "/authorization - Добавить аккаунт WB \n" +
+            "/smart_click - Умный кликер \n" +
+            "/fiks - Фиксированное место \n" +
+            "/output - Вкл/Выкл логирование \n",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
     else:
         await message.answer("Пожалуйста, воспользуйтесь командой, используя клавиатуру ниже")
 
@@ -82,7 +108,7 @@ async def new_accound(message: types.Message, state: FSMContext):
             await message.answer("Введите код из смс для входа в учётную запись", reply_markup=keyboard)
             await Authorization.wait_code.set()
         else:
-            await message.answer("[ВАС НЕТ В БД] сделайте скрин переписки и обратитесь к администратору", reply_markup=types.ReplyKeyboardRemove())
+            await message.answer("Вас нет в нашей Базе Данных, попробуйте /start", reply_markup=types.ReplyKeyboardRemove())
             await state.finish()
     else:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -125,8 +151,9 @@ async def get_sms(message: types.Message, state: FSMContext):
     print(data)
 
     if data["status"]:
+        await DBN.add_cookie(message.from_user.id, phone, f"cookie{phone}")
         await message.answer("Готово, аккаунт добавлен", reply_markup=types.ReplyKeyboardRemove())
-        await state.finish()
+        await Authorization.choose_command_below.set()
     else:
         if data["mes"] == "Неверный СМС код" or data["mes"] == "Неверные данные доступа":
             await message.answer(f"Ошибка\nСообщение от WB: {data['mes']}", reply_markup=types.ReplyKeyboardRemove())
@@ -137,8 +164,18 @@ async def get_sms(message: types.Message, state: FSMContext):
         for code in first_keyboard:
             keyboard.add(code)
         await message.answer("Начните сначала", reply_markup=keyboard)
-        await state.finish()
+        await Authorization.choose_command_below.set()
 
+
+async def delete_account(message: types.Message, state: FSMContext):
+    list_of_cookies = DBG.get_all_cookies(message.from_user.id)
+    cookie = message.text
+    if cookie not in list_of_cookies:
+        await message.answer("Пожалуйста выберите аккаунт используя клавиатуру ниже", reply_markup=types.ReplyKeyboardRemove())
+        return
+    await DBN.delete_account(cookie)
+    await message.answer(f"Готово. Аккаунт {cookie} удалён", reply_markup=types.ReplyKeyboardRemove())
+    await Authorization.choose_command_below.set()
 
 
 
@@ -146,4 +183,5 @@ def register_handlers_auth(dp: Dispatcher):
     dp.register_message_handler(auth_start, commands="authorization", state="*")
     dp.register_message_handler(auth_chosen, state=Authorization.choose_command_below)
     dp.register_message_handler(new_accound, state=Authorization.add_account)
+    dp.register_message_handler(delete_account, state=Authorization.delete_account)
     dp.register_message_handler(get_sms, state=Authorization.wait_code)

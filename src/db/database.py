@@ -1,6 +1,6 @@
-from operator import is_
 import os
 from pydoc import tempfilepager
+from xmlrpc.client import Boolean
 import sqlalchemy as sa
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
@@ -53,24 +53,32 @@ class Cookies(Base):
     telegram_id = sa.Column(sa.String(50))
     phone = sa.Column(sa.String(10))
     file_name = sa.Column(sa.String(50))
+    status = sa.Column(sa.Boolean())
 
 
 class DB_get:
-    def get_user_id(self, telegram_id):
+    def get_all_cookies(self, telegram_id:str) -> list[str]|None:
+        with create_session() as session:
+            resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status).all()
+            if resp is not None:
+                return [i.phone for i in resp]
+            return None
+
+    def get_user_id(self, telegram_id:str) -> str | None:
         with create_session() as session:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
             if resp is not None:
                 return resp.id
             return None
     
-    def get_phone(self, telegram_id):
+    def get_phone(self, telegram_id:str) -> str | None:
         with create_session() as session:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
             if resp is not None:
                 return resp.phone
             return None
 
-    def get_driver(self, telegram_id):
+    def get_driver(self, telegram_id:str) -> str | None:
         with create_session() as session:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
             if resp is not None:
@@ -81,7 +89,20 @@ class DB_new:
     def __init__(self) -> None:
         self.DBG = DB_get()
 
-    async def set_phone(self, telegram_id, phone):
+    async def add_cookie(self, telegram_id:str, phone:str, file_name:str) -> None:
+        with create_session() as session:
+            session.add(Cookies(
+                telegram_id = str(telegram_id),
+                phone = phone,
+                file_name = file_name,
+                status = True
+            ))
+
+    async def delete_account(self, phone:str) -> None:
+        with create_session() as session:
+            session.query(Cookies).filter(Cookies.phone == phone).update({Cookies.status: False})
+
+    async def set_phone(self, telegram_id:str, phone:str) -> bool:
         user_id = self.DBG.get_user_id(telegram_id)
         if user_id is None:
             print("Ошибка Пользователя нет")
@@ -90,7 +111,7 @@ class DB_new:
             session.query(Users).filter(Users.id == user_id).update({Users.phone: phone})
             return True
 
-    async def set_driver(self, telegram_id, driver_code):
+    async def set_driver(self, telegram_id:str, driver_code:str) -> bool:
         user_id = self.DBG.get_user_id(telegram_id)
         if user_id is None:
             print("Ошибка Пользователя нет")
@@ -99,7 +120,7 @@ class DB_new:
             session.query(Users).filter(Users.id == user_id).update({Users.now_driver: driver_code})
             return True
 
-    async def add_user(self, telegram_id, full_name):
+    async def add_user(self, telegram_id:str, full_name:str) -> None:
         if self.DBG.get_user_id(telegram_id) is None:
             with create_session() as session:
                 session.add(Users(
@@ -110,7 +131,7 @@ class DB_new:
                     now_driver = "",
             ))
 
-    def create_all_tables(self):
+    def create_all_tables(self) -> None:
         Base.metadata.create_all(engine)
 
 

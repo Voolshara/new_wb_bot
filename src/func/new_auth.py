@@ -11,6 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Keys
 import selenium.common.exceptions as Sel_Exceptions
+from src.db.database import DB_new
 
 
 
@@ -21,7 +22,7 @@ CORS(app, resources={
 app.config['CORS_HEADERS'] = 'Access-Control-Allow-Origin'
 
 runner = Typer()
-driver_dict = {}
+driver_dict = {} # all drivers
 
 options = webdriver.ChromeOptions()
 options.add_argument("no-sandbox")
@@ -33,7 +34,7 @@ options.add_argument('--ignore-certificate-errors-spki-list')
 options.add_argument("--disable-dev-shm-usage")
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-
+DBN = DB_new() # db
 # Global Variables
 # ------------------------------------------------------------------------------
 # Routes
@@ -82,10 +83,12 @@ def phone_handler(phone):
     login_input.send_keys(phone)
     login_input.send_keys(Keys.ENTER)
     try:
-        WebDriverWait(driver, 7).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "text--yon+U color-Violet--EA6MO"))
-                )
-        return False, None, driver.find_element(By.CLASS_NAME, 'text--yon+U color-Violet--EA6MO').text
+        err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
+        WebDriverWait(err_status_element, 7).until(
+                                EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
+                            )
+        driver.close()
+        return False, None, err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
     except:
         name_of_driver = ""
         for _ in range(16):
@@ -119,10 +122,11 @@ def sms_handler(driver_code, phone, sms):
             )
             pickle.dump(driver.get_cookies(),
                         open(f"src/cookies/cookie{phone}", "wb"))
+            driver.close()
             return True, None            
         except:
-            err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
             try:
+                err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
                 WebDriverWait(err_status_element, 35).until(
                                     EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
                                 )
@@ -143,7 +147,6 @@ def sms_handler(driver_code, phone, sms):
 
 
 def repeat_sms(driver_code):
-
     global driver_dict
     driver = driver_dict[driver_code]
     button = driver.find_elements(By.TAG_NAME, 'button')[-1]
