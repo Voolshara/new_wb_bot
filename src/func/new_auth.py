@@ -108,6 +108,7 @@ def sms_handler(driver_code, phone, sms):
     login_input.clear()
     login_input.send_keys(sms)
     try:
+        print(1)
         err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
         WebDriverWait(err_status_element, 7).until(
                                 EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
@@ -120,6 +121,7 @@ def sms_handler(driver_code, phone, sms):
         #  status, message_from_WB
     except:
         try: # we need this
+            print(2)
             WebDriverWait(driver, 60).until(
             EC.presence_of_element_located((By.CLASS_NAME, "ProfileView"))
             )
@@ -129,6 +131,7 @@ def sms_handler(driver_code, phone, sms):
             return True, None            
         except:
             try:
+                print(3)
                 err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
                 WebDriverWait(err_status_element, 35).until(
                                     EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
@@ -140,6 +143,7 @@ def sms_handler(driver_code, phone, sms):
                 return False, err_text
             except:
                 try: # repeat sms
+                    print(4)
                     WebDriverWait(driver, 4).until(
                                         EC.presence_of_element_located((By.CLASS_NAME, "Button--YsZv8 Button--main---tdBh size-big--DqMCh Button--full-width--DVZvW Button--hover--31M+L"))
                                     )
