@@ -25,7 +25,7 @@ runner = Typer()
 driver_dict = {} # all drivers
 
 options = webdriver.ChromeOptions()
-options.add_argument("no-sandbox")
+options.add_argument("--no-sandbox")
 options.add_argument("--disable-gpu")
 options.add_argument("--window-size=800,600")
 options.add_argument('--ignore-certificate-errors')
