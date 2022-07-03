@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
+from typing import Optional
 
 
 engine = sa.create_engine(
@@ -57,28 +58,28 @@ class Cookies(Base):
 
 
 class DB_get:
-    def get_all_cookies(self, telegram_id:str) -> list[str]|None:
+    def get_all_cookies(self, telegram_id:str) -> Optional[list[str]]:
         with create_session() as session:
             resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status).all()
             if resp is not None:
                 return [i.phone for i in resp]
             return None
 
-    def get_user_id(self, telegram_id:str) -> str | None:
+    def get_user_id(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
             if resp is not None:
                 return resp.id
             return None
     
-    def get_phone(self, telegram_id:str) -> str | None:
+    def get_phone(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
             if resp is not None:
                 return resp.phone
             return None
 
-    def get_driver(self, telegram_id:str) -> str | None:
+    def get_driver(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
             if resp is not None:
