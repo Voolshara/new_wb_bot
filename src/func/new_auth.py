@@ -113,8 +113,10 @@ def sms_handler(driver_code, phone, sms):
         WebDriverWait(err_status_element, 7).until(
                                 EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
                             )
+        print(1.1)
         err_text = err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
         if err_text == "Неверный СМС код" or err_text == "Неверные данные доступа":
+            print(1.2)
             return False, False, err_text
         driver.close()
         return False, err_text
@@ -125,8 +127,10 @@ def sms_handler(driver_code, phone, sms):
             WebDriverWait(driver, 60).until(
             EC.presence_of_element_located((By.CLASS_NAME, "ProfileView"))
             )
+            print(2.1)
             pickle.dump(driver.get_cookies(),
                         open(f"src/cookies/cookie{phone}", "wb"))
+            print(2.2)
             driver.close()
             return True, None            
         except:
@@ -136,6 +140,7 @@ def sms_handler(driver_code, phone, sms):
                 WebDriverWait(err_status_element, 35).until(
                                     EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
                                 )
+                print(3.1)
                 err_text = err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
                 if err_text == "Неверный СМС код" or err_text == "Неверные данные доступа":
                     return False, err_text
