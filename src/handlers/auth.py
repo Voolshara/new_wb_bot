@@ -93,7 +93,7 @@ async def new_accound(message: types.Message, state: FSMContext):
         return 
     await message.answer("Телефон принят, подождите немного", reply_markup=types.ReplyKeyboardRemove())
 
-    data = requests.post("http://localhost:4600/new_user", json={
+    data = requests.post("http://89.151.137.96:4600/new_user", json={
         "status" : "phone",
         "mes" : phone_number
     }).json()
