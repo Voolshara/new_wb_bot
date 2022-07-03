@@ -108,31 +108,39 @@ def sms_handler(driver_code, phone, sms):
     login_input.clear()
     login_input.send_keys(sms)
     try:
+        print(1)
         err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
         WebDriverWait(err_status_element, 7).until(
                                 EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
                             )
+        print(1.1)
         err_text = err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
         if err_text == "Неверный СМС код" or err_text == "Неверные данные доступа":
+            print(1.2)
             return False, False, err_text
         driver.close()
         return False, err_text
         #  status, message_from_WB
     except:
         try: # we need this
+            print(2)
             WebDriverWait(driver, 60).until(
             EC.presence_of_element_located((By.CLASS_NAME, "ProfileView"))
             )
+            print(2.1)
             pickle.dump(driver.get_cookies(),
                         open(f"src/cookies/cookie{phone}", "wb"))
+            print(2.2)
             driver.close()
             return True, None            
         except:
             try:
+                print(3)
                 err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
                 WebDriverWait(err_status_element, 35).until(
                                     EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
                                 )
+                print(3.1)
                 err_text = err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
                 if err_text == "Неверный СМС код" or err_text == "Неверные данные доступа":
                     return False, err_text
@@ -140,6 +148,7 @@ def sms_handler(driver_code, phone, sms):
                 return False, err_text
             except:
                 try: # repeat sms
+                    print(4)
                     WebDriverWait(driver, 4).until(
                                         EC.presence_of_element_located((By.CLASS_NAME, "Button--YsZv8 Button--main---tdBh size-big--DqMCh Button--full-width--DVZvW Button--hover--31M+L"))
                                     )
