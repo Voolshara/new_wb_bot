@@ -93,7 +93,7 @@ async def new_accound(message: types.Message, state: FSMContext):
         return 
     await message.answer("Телефон принят, подождите немного", reply_markup=types.ReplyKeyboardRemove())
 
-    data = requests.post("http://89.151.137.96:4600/new_user", json={
+    data = requests.post("http://localhost:4600/new_user", json={
         "status" : "phone",
         "mes" : phone_number
     }).json()
@@ -123,7 +123,7 @@ async def get_sms(message: types.Message, state: FSMContext):
     code = message.text
     if code == "Отправить код заново":
         driver = DBG.get_driver(message.from_user.id)
-        data = requests.post("http://89.151.137.96:4600/new_user", json={
+        data = requests.post("http://localhost:4600/new_user", json={
             "status" : "repeat_sms",
             "driver_code" : driver,
         }).json()
@@ -141,7 +141,7 @@ async def get_sms(message: types.Message, state: FSMContext):
     driver = DBG.get_driver(message.from_user.id)
     phone = DBG.get_phone(message.from_user.id)
     
-    data = requests.post("http://89.151.137.96:4600/new_user", json={
+    data = requests.post("http://localhost:4600/new_user", json={
         "status" : "sms",
         "driver_code" : driver,
         "phone" : phone,
