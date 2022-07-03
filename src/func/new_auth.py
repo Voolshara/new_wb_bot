@@ -66,7 +66,7 @@ def new_user():
 
 @runner.command()
 def runner():
-    app.run(host="192.168.1.82", port="4600") # запуск сервераp
+    app.run(host="localhost", port="4600") # запуск сервераp
 
 
 # Routes
