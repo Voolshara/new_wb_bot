@@ -1,6 +1,7 @@
 import os
-from pydoc import tempfilepager
-from xmlrpc.client import Boolean
+from re import T
+from tkinter import N
+from traceback import print_tb
 import sqlalchemy as sa
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
@@ -57,7 +58,32 @@ class Cookies(Base):
     status = sa.Column(sa.Boolean())
 
 
+class Place(Base):
+    __tablename__ = 'Place'
+    id = sa.Column(sa.Integer, primary_key=True)
+    telegram_id = sa.Column(sa.String(50))
+    phone = sa.Column(sa.String(10))
+    url = sa.Column(sa.String(1000))
+    place = sa.Column(sa.Integer)
+    wait_place = sa.Column(sa.Boolean())
+    status = sa.Column(sa.Boolean())
+
+
 class DB_get:
+    def get_all_places_to_w8(self, telegram_id:str) -> Optional[list[str]]:
+        with create_session() as session:
+            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == True).all()
+            if resp is not None:
+                return [i.id for i in resp]
+            return None
+
+    def get_all_places(self, telegram_id:str) -> Optional[list[str]]:
+        with create_session() as session:
+            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == False, Place.status == True).all()
+            if resp is not None:
+                return [[i.phone, i.url] for i in resp]
+            return None
+
     def get_all_cookies(self, telegram_id:str) -> Optional[list[str]]:
         with create_session() as session:
             resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status).all()
@@ -89,6 +115,40 @@ class DB_get:
 class DB_new:
     def __init__(self) -> None:
         self.DBG = DB_get()
+
+    async def delete_some_links(self, telegram_id:str, phone:str):
+        with create_session() as session:
+            session.query(Place).filter(Place.telegram_id == telegram_id, Place.phone == phone).update({Place.status: False})
+
+    async def delete_all_links(self, telegram_id:str):
+        with create_session() as session:
+            session.query(Place).filter(Place.telegram_id == telegram_id).update({Place.status: False})
+
+    async def set_place_link(self, telegram_id:str, link:str):
+        with create_session() as session:
+            session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == True, Place.status == True).update({Place.url: link})
+
+    async def set_place_position(self, telegram_id:str, position:str):
+        with create_session() as session:
+            session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == True, Place.status == True).update({Place.place: position, Place.wait_place: False})
+
+    async def new_place_data(self, telegram_id:str, phone:str, url : Optional[str] = None, place : Optional[str] = None, wait_place :Optional[bool] = True):
+        place_ids_to_w8 = self.DBG.get_all_places_to_w8(telegram_id)
+        # print(place_ids_to_w8)
+        with create_session() as session:
+            if len(place_ids_to_w8) == 0:
+                session.add(Place(
+                    telegram_id = str(telegram_id),
+                    phone = phone[2:],
+                    url = url,
+                    place = place,
+                    wait_place = True,
+                    status = True
+                ))
+                return
+            session.query(Place).filter(Place.id == place_ids_to_w8[0]).update({Place.phone : phone[2:]})
+
+     # происходит наложение телефонов, если сбросить 1 регистрацию и продолжить с другой, то линк запишется на другой телефон
 
     async def add_cookie(self, telegram_id:str, phone:str, file_name:str) -> None:
         with create_session() as session:
