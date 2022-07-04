@@ -1,7 +1,4 @@
 import os
-from re import T
-from tkinter import N
-from traceback import print_tb
 import sqlalchemy as sa
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
