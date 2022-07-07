@@ -292,6 +292,14 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "multiprocessing"
+version = "2.6.2.1"
+description = "Backport of the multiprocessing package to Python 2.4 and 2.5"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "outcome"
 version = "1.2.0"
 description = "Capture the outcome of Python function calls."
@@ -627,7 +635,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "b9b6978cea0df3396b57f22b540d33fa80a82076f828761c8510976c5d3a93a0"
+content-hash = "658d6bbd34ed1442f4cb210721210ad2803bee1201ce0f7df8ae87c0d78dbc3b"
 
 [metadata.files]
 aiogram = [
@@ -1076,6 +1084,13 @@ multidict = [
     {file = "multidict-6.0.2-cp39-cp39-win32.whl", hash = "sha256:23b616fdc3c74c9fe01d76ce0d1ce872d2d396d8fa8e4899398ad64fb5aa214a"},
     {file = "multidict-6.0.2-cp39-cp39-win_amd64.whl", hash = "sha256:4bae31803d708f6f15fd98be6a6ac0b6958fcf68fda3c77a048a4f9073704aae"},
     {file = "multidict-6.0.2.tar.gz", hash = "sha256:5ff3bd75f38e4c43f1f470f2df7a4d430b821c4ce22be384e1459cb57d6bb013"},
+]
+multiprocessing = [
+    {file = "multiprocessing-2.6.2.1-py2.4-win32.egg", hash = "sha256:d5f56e123606e8bc792164fe7bd12a5657533f1b936abb65b48385a8d8193176"},
+    {file = "multiprocessing-2.6.2.1-py2.5-win32.egg", hash = "sha256:109f4c89ea5c80814817d6636be5e1ec01f8567fdff84ea058ceeae46dbe4bd3"},
+    {file = "multiprocessing-2.6.2.1.tar.gz", hash = "sha256:ef3b81ad85d7de252e5491b1daac028e17f9741cbe3625032e6eaa4ad4c79900"},
+    {file = "multiprocessing-2.6.2.1.win32-py2.4.exe", hash = "sha256:3e74e3d6a4df52299392498b85427f3eb6d3f93d249d8ba649fe6a2135b3a73d"},
+    {file = "multiprocessing-2.6.2.1.win32-py2.5.exe", hash = "sha256:b6369e44b62543b1be3afdbb4c1c2d9b1b290a7ed67c6a20f8fd014b5b727760"},
 ]
 outcome = [
     {file = "outcome-1.2.0-py2.py3-none-any.whl", hash = "sha256:c4ab89a56575d6d38a05aa16daeaa333109c1f96167aba8901ab18b6b5e0f7f5"},

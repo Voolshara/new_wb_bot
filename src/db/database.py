@@ -1,4 +1,9 @@
+from http.cookiejar import Cookie
+from lib2to3.pgen2.driver import Driver
 import os
+from datetime import datetime
+from re import T
+from turtle import color
 import sqlalchemy as sa
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
@@ -42,24 +47,35 @@ class Users(Base):
     full_name = sa.Column(sa.String(50))
     blocked = sa.Column(sa.Boolean())
     is_output = sa.Column(sa.Boolean())
-    phone = sa.Column(sa.String(10))
-    now_driver = sa.Column(sa.String(16))
+    
+
+class Drivers(Base):
+    __tablename__ = 'Drivers'
+    id = sa.Column(sa.Integer, primary_key=True)
+    telegram_id = sa.Column(sa.String(50))
+    driver = sa.Column(sa.String(16))
+    code_send_time = sa.Column(sa.DateTime, server_default=func.now())
+    is_active = sa.Column(sa.Boolean())
 
 
 class Cookies(Base):
     __tablename__ = 'Cookies'
     id = sa.Column(sa.Integer, primary_key=True)
     telegram_id = sa.Column(sa.String(50))
-    phone = sa.Column(sa.String(10))
+    phone = sa.Column(sa.String(15), unique=True)
     file_name = sa.Column(sa.String(50))
-    status = sa.Column(sa.Boolean())
+    status = sa.Column(sa.Integer) 
+    # (0) - wait sms 
+    # (1) - ready to use
+    # (-1) - deleted  
+    # (-2) - not fully registered
 
 
 class Place(Base):
     __tablename__ = 'Place'
     id = sa.Column(sa.Integer, primary_key=True)
     telegram_id = sa.Column(sa.String(50))
-    phone = sa.Column(sa.String(10))
+    phone = sa.Column(sa.String(15))
     url = sa.Column(sa.String(1000))
     place = sa.Column(sa.Integer)
     wait_place = sa.Column(sa.Boolean())
@@ -97,17 +113,23 @@ class DB_get:
     
     def get_phone(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
-            resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
-            if resp is not None:
-                return resp.phone
-            return None
+            resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status == 0).one_or_none()
+            return resp.phone
 
     def get_driver(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
-            resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
-            if resp is not None:
-                return resp.now_driver
-            return None
+            resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).one_or_none()
+            return resp.driver
+
+    def is_resend_not_ready(self, telegram_id:str) -> bool:
+        with create_session() as session:
+            resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).one_or_none()
+            if (datetime.now() - resp.code_send_time).total_seconds() >= 65:
+                return False
+            return True
+
+# ------------------------------------------------------ Authorization ---------------------------------------
+
 
 class DB_new:
     def __init__(self) -> None:
@@ -147,36 +169,55 @@ class DB_new:
 
      # происходит наложение телефонов, если сбросить 1 регистрацию и продолжить с другой, то линк запишется на другой телефон
 
-    async def add_cookie(self, telegram_id:str, phone:str, file_name:str) -> None:
-        with create_session() as session:
-            session.add(Cookies(
-                telegram_id = str(telegram_id),
-                phone = phone,
-                file_name = file_name,
-                status = True
-            ))
-
+# ------------------------------------------------------ Authorization ---------------------------------------
     async def delete_account(self, phone:str) -> None:
         with create_session() as session:
-            session.query(Cookies).filter(Cookies.phone == phone).update({Cookies.status: False})
+            session.query(Cookies).filter(Cookies.phone == phone).update({Cookies.status: -1})
 
-    async def set_phone(self, telegram_id:str, phone:str) -> bool:
-        user_id = self.DBG.get_user_id(telegram_id)
-        if user_id is None:
-            print("Ошибка Пользователя нет")
-            return False
+    async def clean_empty_cookies(self, telegram_id:str) -> None:
         with create_session() as session:
-            session.query(Users).filter(Users.id == user_id).update({Users.phone: phone})
-            return True
+            session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status == 0).update({
+                Cookies.status: -2, 
+                })
 
-    async def set_driver(self, telegram_id:str, driver_code:str) -> bool:
-        user_id = self.DBG.get_user_id(telegram_id)
-        if user_id is None:
-            print("Ошибка Пользователя нет")
-            return False
+    async def clean_empty_drivers(self, telegram_id:str) -> None:
         with create_session() as session:
-            session.query(Users).filter(Users.id == user_id).update({Users.now_driver: driver_code})
-            return True
+            session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).update({
+                Drivers.is_active : False, 
+                })
+    
+    async def add_cookie_file(self, telegram_id:str, phone:str, file_name:str) -> None:
+        with create_session() as session:
+            session.query(Cookies).filter(Cookies.phone == phone).update({
+                Cookies.status: 1, 
+                Cookies.file_name : file_name
+                })
+
+
+    async def new_cookie(self, telegram_id:str, phone:str) -> None:
+        with create_session() as session:
+            req = session.query(Cookies).filter(Cookies.phone == phone).one_or_none()
+            if req is None:
+                session.add(Cookies(
+                    telegram_id = telegram_id,
+                    phone = phone,
+                    file_name = "",
+                    status = 0,
+                ))
+            else:
+                session.query(Cookies).filter(Cookies.phone == phone).update({
+                    Cookies.telegram_id : telegram_id,
+                    Cookies.status : 0,
+                    })
+
+    async def set_driver(self, telegram_id:str, driver_code:str) -> None:
+        with create_session() as session:
+            session.add(Drivers(
+            telegram_id = telegram_id,
+            driver = driver_code,
+            code_send_time = datetime.now(),
+            is_active = True
+        ))
 
     async def add_user(self, telegram_id:str, full_name:str) -> None:
         if self.DBG.get_user_id(telegram_id) is None:
@@ -186,8 +227,9 @@ class DB_new:
                     full_name = full_name,
                     blocked = False,
                     is_output = False,
-                    now_driver = "",
             ))
+
+# ------------------------------------------------------ Authorization ---------------------------------------
 
     def create_all_tables(self) -> None:
         Base.metadata.create_all(engine)

@@ -1,3 +1,4 @@
+from re import T
 from flask import Flask, request
 from flask_cors import CORS
 from random import randint
@@ -71,7 +72,7 @@ def runner():
 
 # Routes
 # ------------------------------------------------------------------------------
-#Handlers
+# Handlers
 
 
 def phone_handler(phone):
@@ -117,7 +118,7 @@ def sms_handler(driver_code, phone, sms):
         err_text = err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
         if err_text == "Неверный СМС код" or err_text == "Неверные данные доступа":
             print(1.2)
-            return False, False, err_text
+            return False, err_text
         driver.close()
         return False, err_text
         #  status, message_from_WB
@@ -167,3 +168,13 @@ def repeat_sms(driver_code):
     button.click()
     return True
 
+
+# Handlers
+# ------------------------------------------------------------------------------
+# Tests
+def test_driver_connection():
+    try: 
+        driver = webdriver.Chrome(options=options)
+        return True
+    except:
+        return False

@@ -39,8 +39,8 @@ async def main():
     # Регистрация хэндлеров
     register_handlers_common(dp)
     register_handlers_food(dp)
-    register_handlers_auth(dp)
     register_handlers_fiks(dp)
+    register_handlers_auth(dp)
 
     # Установка команд бота
     await set_commands(bot)

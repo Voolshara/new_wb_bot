@@ -2,6 +2,9 @@ from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text, IDFilter
 from src.db.database import DB_new
+from src.func.behavior_decorators import check_start
+from src.handlers.auth import auth_start
+from src.handlers.fiks import fiks_start
 
 
 DBN = DB_new()
@@ -26,11 +29,13 @@ async def cmd_start(message: types.Message, state: FSMContext):
     await DBN.add_user(telegram_id=str(message.from_user.id), full_name=message.from_user.full_name)
 
 
+@check_start
 async def cmd_cancel(message: types.Message, state: FSMContext):
     await state.finish()
     await message.answer("Действие отменено", reply_markup=types.ReplyKeyboardRemove())
 
 
+@check_start
 async def secret_command(message: types.Message):
     await message.answer("Поздравляю! Эта команда доступна только администратору бота.")
 
@@ -40,4 +45,8 @@ def register_handlers_common(dp: Dispatcher):
     dp.register_message_handler(cmd_start, commands="start", state="*")
     dp.register_message_handler(cmd_cancel, commands="cancel", state="*")
     dp.register_message_handler(cmd_cancel, Text(equals="отмена", ignore_case=True), state="*")
+    
+
+    dp.register_message_handler(auth_start, commands="authorization", state="*")
+    dp.register_message_handler(fiks_start, commands="fiks", state="*")
     # dp.register_message_handler(secret_command, IDFilter(user_id=admin_id), commands="abracadabra")

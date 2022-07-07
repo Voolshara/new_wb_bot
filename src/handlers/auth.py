@@ -1,8 +1,12 @@
+from time import sleep
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 import re, requests
 from src.db.database import DB_new, DB_get
+from src.func.behavior_decorators import check_start
+import multiprocessing 
+
 
 # keboards
 first_keyboard = ["Добавить аккаунт", "Удалить аккаунт", "Посмотреть добавленные аккаунты", "Меню"]
@@ -11,19 +15,32 @@ repeat_sms_keyboard = ["Отправить код заново"]
 # states
 class Authorization(StatesGroup):
     choose_command_below = State()
-
     add_account = State()
     wait_code = State()
-
     delete_account = State()
-    
     look_account = State()
+
 
 # database
 DBN = DB_new()
 DBG = DB_get()
 
+flag = False
+
+# clean decorator
+def clean_empty_obj(handler):
+    async def clean(message, state=None):
+        await DBN.clean_empty_cookies(message.from_user.id)
+        await DBN.clean_empty_drivers(message.from_user.id)
+        # TODO :  realise close drivers on auth server
+        return await handler(message, state)
+    return clean
+        
+
+
 # start auth state
+@check_start
+@clean_empty_obj
 async def auth_start(message: types.Message, state: FSMContext):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for code in first_keyboard:
@@ -33,6 +50,7 @@ async def auth_start(message: types.Message, state: FSMContext):
 
 
 # chosse key in keyboard
+@check_start
 async def auth_chosen(message: types.Message, state: FSMContext):
     if message.text not in first_keyboard:
         await message.answer("Пожалуйста, воспользуйтесь командой, используя клавиатуру ниже")
@@ -41,7 +59,7 @@ async def auth_chosen(message: types.Message, state: FSMContext):
         #if check_queue:
         if True:
             await message.answer("Отлично, давайте добавим новый аккаунт")
-            await message.answer("Введите номер телефона без кода страны \nПример: 9371111111", reply_markup=types.ReplyKeyboardRemove())
+            await message.answer("Введите номер телефона без кода страны \nПример: +79781248490", reply_markup=types.ReplyKeyboardRemove())
             await Authorization.add_account.set()
         else:
             await message.answer("Повторите попытку позже")
@@ -83,58 +101,76 @@ async def auth_chosen(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, воспользуйтесь командой, используя клавиатуру ниже")
 
 
+def new_account_procces(phone_number, q):
+    # global flag
+    q.put(requests.post("http://localhost:4600/new_user", json={
+        "status" : "phone",
+        "mes" : phone_number[2:]
+    }).json())
+
+
 # add new account
-async def new_accound(message: types.Message, state: FSMContext):
+@check_start
+async def new_account(message: types.Message, state: FSMContext):
+    global flag
     phone_number = message.text
     # check line in DB
-    phone_reg = re.compile("\d{3}\d{3}\d{4}")
-    if len(phone_reg.findall(phone_number)) == 0 or len(phone_number) != 10:
+    # phone_reg = re.compile()
+    if re.match(r"[+]7[0-9]{10}$", phone_number) is None:
         await message.answer("Неверный номер телефона (см Пример) \nПопоробуйте ещё раз", reply_markup=types.ReplyKeyboardRemove())
         return 
     await message.answer("Телефон принят, подождите немного", reply_markup=types.ReplyKeyboardRemove())
-
-    data = requests.post("http://localhost:4600/new_user", json={
-        "status" : "phone",
-        "mes" : phone_number
-    }).json()
-
-    print(data)
-
-    if data["status"]:
-        if await DBN.set_driver(message.from_user.id, data["name_of_driver"]) and  await DBN.set_phone(message.from_user.id, phone_number):
+    if not flag:
+        flag = True
+        multiprocessing.set_start_method('spawn')
+        q = multiprocessing.Queue()
+        p = multiprocessing.Process(target=new_account_procces, args=(phone_number, q,))
+        p.start()
+        data = q.get()
+        if data["status"]:
+            await DBN.set_driver(message.from_user.id, data["name_of_driver"])
+            await DBN.new_cookie(message.from_user.id, phone_number)
             keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
             for code in repeat_sms_keyboard:
                 keyboard.add(code)
-            await message.answer("Введите код из смс для входа в учётную запись", reply_markup=keyboard)
+            await message.reply("Введите код из смс для входа в учётную запись", reply_markup=keyboard)
             await Authorization.wait_code.set()
         else:
-            await message.answer("Вас нет в нашей Базе Данных, попробуйте /start", reply_markup=types.ReplyKeyboardRemove())
-            await state.finish()
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            for code in first_keyboard:
+                keyboard.add(code)
+            await message.reply(f"Ошибка со стороны WB \nСообщение от WB: {data['mes']}", reply_markup=keyboard)
+            await Authorization.choose_command_below.set()
+        # flag = False
+        p.join()
     else:
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        for code in first_keyboard:
-            keyboard.add(code)
-        await message.answer(f"Ошибка со стороны WB \nСообщение от WB: {data['mes']}", reply_markup=keyboard)
-        await Authorization.choose_command_below.set()
+        await message.answer("Ваш телефон уже в обработке, пожалуйста подождите", reply_markup=types.ReplyKeyboardRemove())
 
 
 # get code from sms
+@check_start
 async def get_sms(message: types.Message, state: FSMContext):
     code = message.text
+    
     if code == "Отправить код заново":
-        driver = DBG.get_driver(message.from_user.id)
+        if DBG.is_resend_not_ready(message.from_user.id):
+            await message.answer("Ещё нет возможности отправить код заново \nНужно подождать около минуты")
+            return
+
         data = requests.post("http://localhost:4600/new_user", json={
             "status" : "repeat_sms",
-            "driver_code" : driver,
+            "driver_code" : DBG.get_driver(message.from_user.id),
         }).json()
+
         if data["status"]:
             await message.answer("Код отправлен")
             return
         await message.answer("Ещё нет возможности отправить код заново \nНужно подождать около минуты")
         return
+
     code_reg = re.compile("\d{6}")
     if len(code_reg.findall(code)) == 0 or len(code) != 6:
-        await message.answer("Неверный код изи смс\nВведите ещё раз")
+        await message.answer("Неверный код из смс\nВведите ещё раз")
         return
     await message.answer("Код принят, подождите немного", reply_markup=types.ReplyKeyboardRemove())
 
@@ -148,10 +184,9 @@ async def get_sms(message: types.Message, state: FSMContext):
         "sms" : code,
     }).json()
 
-    print(data)
 
     if data["status"]:
-        await DBN.add_cookie(message.from_user.id, phone, f"cookie{phone}")
+        await DBN.add_cookie_file(message.from_user.id, phone, f"cookie{phone}")
         await message.answer("Готово, аккаунт добавлен", reply_markup=types.ReplyKeyboardRemove())
         await Authorization.choose_command_below.set()
     else:
@@ -160,6 +195,8 @@ async def get_sms(message: types.Message, state: FSMContext):
             await message.answer(f"Проверьте смс код и отправьте его снова", reply_markup=types.ReplyKeyboardRemove())
             return
         await message.answer(f"Ошибка\nСообщение от WB: {data['mes']}", reply_markup=types.ReplyKeyboardRemove())
+        await DBN.clean_empty_cookies(message.from_user.id) # clean not used cookie
+        await DBN.clean_empty_drivers(message.from_user.id) # clean not used driver
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for code in first_keyboard:
             keyboard.add(code)
@@ -167,6 +204,7 @@ async def get_sms(message: types.Message, state: FSMContext):
         await Authorization.choose_command_below.set()
 
 
+@check_start
 async def delete_account(message: types.Message, state: FSMContext):
     list_of_cookies = DBG.get_all_cookies(message.from_user.id)
     cookie = message.text
@@ -180,8 +218,7 @@ async def delete_account(message: types.Message, state: FSMContext):
 
 
 def register_handlers_auth(dp: Dispatcher):
-    dp.register_message_handler(auth_start, commands="authorization", state="*")
     dp.register_message_handler(auth_chosen, state=Authorization.choose_command_below)
-    dp.register_message_handler(new_accound, state=Authorization.add_account)
+    dp.register_message_handler(new_account, state=Authorization.add_account)
     dp.register_message_handler(delete_account, state=Authorization.delete_account)
     dp.register_message_handler(get_sms, state=Authorization.wait_code)

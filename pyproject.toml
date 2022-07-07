@@ -10,8 +10,7 @@ packages = [
 
 [tool.poetry.scripts]
 bot = "src.bot:run"
-auth = "src.func.new_auth:runner"
-test = "tests.test_new_wb_bot:run"
+auth = "src.func.drivers_server:runner"
 set_db = "src.db.set_db:runner"
 
 [tool.poetry.dependencies]
