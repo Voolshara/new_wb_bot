@@ -1,19 +1,17 @@
-from http.cookiejar import Cookie
-from lib2to3.pgen2.driver import Driver
 import os
 from datetime import datetime
-from re import T
-from turtle import color
 import sqlalchemy as sa
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
+from sqlalchemy.schema import *
 from typing import Optional
 
 
+
 engine = sa.create_engine(
-    'mariadb+pymysql://{}:{}@{}:{}/{}'.format(
+    'mysql+pymysql://{}:{}@{}:{}/{}'.format(
         os.getenv('MySQL_NAME'),
         os.getenv('MySQL_PASSWORD'),
         os.getenv('MySQL_HOST'),
@@ -47,13 +45,14 @@ class Users(Base):
     full_name = sa.Column(sa.String(50))
     blocked = sa.Column(sa.Boolean())
     is_output = sa.Column(sa.Boolean())
-    
+    is_send_auth = sa.Column(sa.Boolean())
 
 class Drivers(Base):
     __tablename__ = 'Drivers'
     id = sa.Column(sa.Integer, primary_key=True)
     telegram_id = sa.Column(sa.String(50))
     driver = sa.Column(sa.String(16))
+    is_ready_for_sms = sa.Column(sa.Boolean)
     code_send_time = sa.Column(sa.DateTime, server_default=func.now())
     is_active = sa.Column(sa.Boolean())
 
@@ -83,6 +82,18 @@ class Place(Base):
 
 
 class DB_get:
+    def get_cookie_from_url(self, url):
+        with create_session() as session:
+            resp = session.query(Place).filter(Place.url == url, Place.status == 1).one_or_none()
+            if resp is None:
+                return None
+            phone, place = "+7" + resp.phone, resp.place
+            resp = session.query(Cookies).filter(Cookies.phone == phone, Cookies.status == 1).one_or_none()
+            if resp is None:
+                return
+            return url, place, resp.file_name
+
+
     def get_all_places_to_w8(self, telegram_id:str) -> Optional[list[str]]:
         with create_session() as session:
             resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == True).all()
@@ -99,7 +110,7 @@ class DB_get:
 
     def get_all_cookies(self, telegram_id:str) -> Optional[list[str]]:
         with create_session() as session:
-            resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status).all()
+            resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status == 1).all()
             if resp is not None:
                 return [i.phone for i in resp]
             return None
@@ -110,6 +121,11 @@ class DB_get:
             if resp is not None:
                 return resp.id
             return None
+
+    def get_user_sms_status(self, telegram_id:str) -> bool:
+        with create_session() as session:
+            resp = session.query(Users).filter(Users.telegram_id == telegram_id).one_or_none()
+            return resp.is_send_auth
     
     def get_phone(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
@@ -119,12 +135,21 @@ class DB_get:
     def get_driver(self, telegram_id:str) -> Optional[str]:
         with create_session() as session:
             resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).one_or_none()
-            return resp.driver
+            if resp is not None:
+                return resp.driver
+            return None
 
     def is_resend_not_ready(self, telegram_id:str) -> bool:
         with create_session() as session:
             resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).one_or_none()
             if (datetime.now() - resp.code_send_time).total_seconds() >= 65:
+                return False
+            return True
+
+    def get_ready_for_sms_status(self, telegram_id:str) -> bool:
+        with create_session() as session:
+            resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True, Drivers.is_ready_for_sms == True).one_or_none()
+            if resp is None:
                 return False
             return True
 
@@ -135,9 +160,13 @@ class DB_new:
     def __init__(self) -> None:
         self.DBG = DB_get()
 
-    async def delete_some_links(self, telegram_id:str, phone:str):
+    async def delete_some_links(self, telegram_id:str, phone:str) -> bool:
         with create_session() as session:
+            req = session.query(Place).filter(Place.telegram_id == telegram_id, Place.phone == phone).all()
+            if len(req) == 0:
+                return False
             session.query(Place).filter(Place.telegram_id == telegram_id, Place.phone == phone).update({Place.status: False})
+            return True
 
     async def delete_all_links(self, telegram_id:str):
         with create_session() as session:
@@ -170,10 +199,25 @@ class DB_new:
      # происходит наложение телефонов, если сбросить 1 регистрацию и продолжить с другой, то линк запишется на другой телефон
 
 # ------------------------------------------------------ Authorization ---------------------------------------
+    async def set_user_send(self, telegram_id:str) -> None:
+        with create_session() as session:
+            session.query(Users).filter(Users.telegram_id == telegram_id).update({Users.is_send_auth: True})
+
+    async def set_user_send_f(self, telegram_id:str) -> None:
+        with create_session() as session:
+            session.query(Users).filter(Users.telegram_id == telegram_id, Users.is_send_auth == True).update({Users.is_send_auth: False})
+
+    
     async def delete_account(self, phone:str) -> None:
         with create_session() as session:
             session.query(Cookies).filter(Cookies.phone == phone).update({Cookies.status: -1})
 
+    async def set_status_of_sms(self, telegram_id:str) -> None:
+        with create_session() as session:
+            session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).update({
+                Drivers.is_ready_for_sms : True, 
+            })
+    
     async def clean_empty_cookies(self, telegram_id:str) -> None:
         with create_session() as session:
             session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status == 0).update({
@@ -215,6 +259,7 @@ class DB_new:
             session.add(Drivers(
             telegram_id = telegram_id,
             driver = driver_code,
+            is_ready_for_sms = False,
             code_send_time = datetime.now(),
             is_active = True
         ))
@@ -227,6 +272,7 @@ class DB_new:
                     full_name = full_name,
                     blocked = False,
                     is_output = False,
+                    is_send_auth = False
             ))
 
 # ------------------------------------------------------ Authorization ---------------------------------------

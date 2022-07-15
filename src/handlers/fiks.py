@@ -47,7 +47,7 @@ async def fiks_chosen(message: types.Message, state: FSMContext):
         else:
             keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
             for account in list_of_cookies:
-                keyboard.add("+7" + account)   
+                keyboard.add(account)   
             await message.answer(f"Выберите аккаунт, к которому надо привязать ссылку", reply_markup=keyboard)
             await Fiks.choose_one_phone.set()
         # list_of_cookies = ["9969498308"]
@@ -58,28 +58,33 @@ async def fiks_chosen(message: types.Message, state: FSMContext):
         # await Fiks.choose_one_phone.set()
     elif message.text.lower() == "посмотреть добавленные ссылки":
         all_links = DBG.get_all_places(message.from_user.id)
-        s = "Добавленные аккаунты: "
-        for phone, link in all_links:
-            s += f"Тел {phone} ({link})\n"
-
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        for code in fiks_keyboard:
-            keyboard.add(code)
-        await message.answer(s, reply_markup=keyboard)
+        if len(all_links) == 0:
+            await message.answer("У вас нет аккаунтов")
+        else:
+            s = "Добавленные аккаунты: "
+            for phone, link in all_links:
+                s += f"Тел {phone} ({link})\n"
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            for code in fiks_keyboard:
+                keyboard.add(code)
+            await message.answer(s, reply_markup=keyboard)
     elif message.text.lower() == "удалить ссылку(и)":
         all_links = DBG.get_all_places(message.from_user.id)
-        n = 1
-        s = "Добавленные аккаунты: "
-        for phone, link in all_links:
-            s += f"{n})  Тел {phone} [{link}]\n"
-            n += 1
-        await message.answer(s, reply_markup=types.ReplyKeyboardRemove())
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        for phone, link in all_links:
-            keyboard.add(f"+7{phone} {n}")
-        keyboard.add(f"Удалить все ссылки")
-        await message.answer("Выберете сслыку, которую надо удалить", reply_markup=keyboard)
-        await Fiks.delete_link.set()
+        if len(all_links) == 0:
+            await message.answer("У вас нет аккаунтов")
+        else:
+            n = 1
+            s = "Добавленные аккаунты: "
+            for phone, link in all_links:
+                s += f"{n})  Тел {phone} [{link}]\n"
+                n += 1
+            await message.answer(s, reply_markup=types.ReplyKeyboardRemove())
+            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            for phone, link in all_links:
+                keyboard.add(f"+7{phone} {n}")
+            keyboard.add(f"Удалить все ссылки")
+            await message.answer("Выберете сслыку, которую надо удалить", reply_markup=keyboard)
+            await Fiks.delete_link.set()
 
 
 @check_start
@@ -95,13 +100,14 @@ async def delete_link(message: types.Message, state: FSMContext):
         await Fiks.choose_command_below.set()
         return
     phone = delete_link[2:13]
-    await DBN.delete_some_links(message.from_user.id, phone)
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for code in fiks_keyboard:
-        keyboard.add(code)
-    await message.answer(f"Удалён: {phone}", reply_markup=keyboard)
-    await Fiks.choose_command_below.set()
-    return
+    if DBN.delete_some_links(message.from_user.id, phone):
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for code in fiks_keyboard:
+            keyboard.add(code)
+        await message.answer(f"Удалён: {phone}", reply_markup=keyboard)
+        await Fiks.choose_command_below.set()
+        return
+    await message.answer(f"Такого аккаунта не существует", reply_markup=types.ReplyKeyboardRemove())
 
 
 @check_start
@@ -112,7 +118,7 @@ async def phone_chosen(message: types.Message, state: FSMContext):
         list_of_cookies = DBG.get_all_cookies(message.from_user.id)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for account in list_of_cookies:
-            keyboard.add("+7" + account)
+            keyboard.add(account)
         await message.answer("Неверный номер телефона\nПопоробуйте ещё раз", reply_markup=keyboard)
         return 
     await DBN.new_place_data(message.from_user.id, phone_number)
@@ -126,7 +132,7 @@ async def phone_chosen(message: types.Message, state: FSMContext):
 
 @check_start
 async def set_link(message: types.Message, state: FSMContext):
-    link_re = re.compile(r"https://seller.wildberries.ru/cmp/campaigns/list/active/edit/carousel-auction/.*")
+    link_re = re.compile(r"https://seller.wildberries.ru/cmp/campaigns/list/active/edit/.*")
     link = message.text
     if len(link_re.findall(link)) == 0:
         await message.answer("Неверная сслыка, попробуйте ещё раз", reply_markup=types.ReplyKeyboardRemove())

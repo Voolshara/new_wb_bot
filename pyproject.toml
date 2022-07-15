@@ -12,6 +12,7 @@ packages = [
 bot = "src.bot:run"
 auth = "src.func.drivers_server:runner"
 set_db = "src.db.set_db:runner"
+stavki = "src.func.stavki:runner"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -24,6 +25,7 @@ pytest = "^7.1.2"
 Flask = "^2.1.2"
 Flask-Cors = "^3.0.10"
 requests = "^2.28.1"
+webdriver-manager = "^3.8.1"
 
 [tool.poetry.dev-dependencies]
 

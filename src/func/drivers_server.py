@@ -76,6 +76,7 @@ def runner():
 
 
 def phone_handler(phone):
+    global driver_dict
     driver = webdriver.Chrome(options=options)
     # driver = webdriver.Chrome("/usr/local/bin/chromedriver", options=options)  
     driver.get("https://seller.wildberries.ru/login/ru?redirect_url=/")
@@ -87,19 +88,36 @@ def phone_handler(phone):
     login_input.send_keys(phone)
     login_input.send_keys(Keys.ENTER)
     try:
-        err_status_element = driver.find_element(By.CLASS_NAME, 'Accept-code__input-error--M98Yq')
+        err_status_element = driver.find_element(By.CLASS_NAME, 'Login-phone__input-error--G4jI5')
         WebDriverWait(err_status_element, 7).until(
                                 EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
                             )
         driver.close()
         return False, None, err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
     except:
-        name_of_driver = ""
-        for _ in range(16):
-            name_of_driver += chr(randint(97, 122))
-        global driver_dict
-        driver_dict[name_of_driver] = driver
-        return True, name_of_driver, None
+        if "На номер" in driver.find_element(By.TAG_NAME, "body").text:
+            name_of_driver = ""
+            for _ in range(16):
+                name_of_driver += chr(randint(97, 122))
+            
+            driver_dict[name_of_driver] = driver
+            return True, name_of_driver, None
+        else:
+            try:
+                err_status_element = driver.find_element(By.CLASS_NAME, 'Login-phone__input-error--G4jI5')
+                WebDriverWait(err_status_element, 50).until(
+                                        EC.presence_of_element_located((By.CLASS_NAME, "color-Violet--EA6MO"))
+                                    )
+                driver.close()
+                return False, None, err_status_element.find_element(By.CLASS_NAME, 'color-Violet--EA6MO').text
+            except:
+                if "На номер" in driver.text:
+                    name_of_driver = ""
+                    for _ in range(16):
+                        name_of_driver += chr(randint(97, 122))
+                    driver_dict[name_of_driver] = driver
+                    return True, name_of_driver, None
+                return False, None, "Ошибка WB\nПопробуйте сначала /authorization" 
 
 
 def sms_handler(driver_code, phone, sms):
