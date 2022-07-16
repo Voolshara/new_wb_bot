@@ -6,6 +6,7 @@ import re
 
 from src.handlers.auth import delete_account
 from src.func.behavior_decorators import check_start
+from src.func.stavki import place_setup_from_tg
 
 DBG = DB_get()
 DBN = DB_new()
@@ -19,7 +20,6 @@ class Fiks(StatesGroup):
     choose_one_phone = State()
     w8_link = State()
     w8_position = State()
-
     delete_link = State()
 
 
@@ -138,6 +138,7 @@ async def set_link(message: types.Message, state: FSMContext):
         await message.answer("Неверная сслыка, попробуйте ещё раз", reply_markup=types.ReplyKeyboardRemove())
         return
     await DBN.set_place_link(message.from_user.id, link)
+    await DBN.set_fiks_link(message.from_user.id, link)
     await message.answer(
         f"Укажите позицию, на которой должен встать продукт"
         f"Введите просто число"
@@ -160,12 +161,12 @@ async def set_position(message: types.Message, state: FSMContext):
     for code in fiks_keyboard:
         keyboard.add(code)
     await message.answer(f"Готово", reply_markup=keyboard)
+    await place_setup_from_tg(DBG.get_fiks_link(message.from_user.id), message.from_user.id)
     await Fiks.choose_command_below.set()
 
     
 
 def register_handlers_fiks(dp: Dispatcher):
-
     dp.register_message_handler(fiks_chosen, state=Fiks.choose_command_below)
     dp.register_message_handler(phone_chosen, state=Fiks.choose_one_phone)
     dp.register_message_handler(set_link, state=Fiks.w8_link)

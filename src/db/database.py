@@ -46,6 +46,7 @@ class Users(Base):
     blocked = sa.Column(sa.Boolean())
     is_output = sa.Column(sa.Boolean())
     is_send_auth = sa.Column(sa.Boolean())
+    link_for_fiks = sa.Column(sa.String(50))
 
 class Drivers(Base):
     __tablename__ = 'Drivers'
@@ -75,7 +76,8 @@ class Place(Base):
     id = sa.Column(sa.Integer, primary_key=True)
     telegram_id = sa.Column(sa.String(50))
     phone = sa.Column(sa.String(15))
-    url = sa.Column(sa.String(1000))
+    url = sa.Column(sa.String(500))
+    last_url = sa.Column(sa.String(500))
     place = sa.Column(sa.Integer)
     wait_place = sa.Column(sa.Boolean())
     status = sa.Column(sa.Boolean())
@@ -88,6 +90,7 @@ class DB_get:
             if resp is None:
                 return None
             phone, place = "+7" + resp.phone, resp.place
+            # phone = "+79781248490"
             resp = session.query(Cookies).filter(Cookies.phone == phone, Cookies.status == 1).one_or_none()
             if resp is None:
                 return
@@ -100,6 +103,11 @@ class DB_get:
             if resp is not None:
                 return [i.id for i in resp]
             return None
+
+    def get_fiks_link(self, telegram_id:str) -> None:
+        with create_session() as session:
+            resp = session.query(Users).filter(Users.telegram_id == telegram_id).one()
+            return resp.link_for_fiks
 
     def get_all_places(self, telegram_id:str) -> Optional[list[str]]:
         with create_session() as session:
@@ -180,6 +188,11 @@ class DB_new:
         with create_session() as session:
             session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == True, Place.status == True).update({Place.place: position, Place.wait_place: False})
 
+    async def set_fiks_link(self, telegram_id:str, link:str) -> None:
+        with create_session() as session:
+            session.query(Users).filter(Users.telegram_id == telegram_id).update({Users.link_for_fiks: link})
+
+    
     async def new_place_data(self, telegram_id:str, phone:str, url : Optional[str] = None, place : Optional[str] = None, wait_place :Optional[bool] = True):
         place_ids_to_w8 = self.DBG.get_all_places_to_w8(telegram_id)
         # print(place_ids_to_w8)
@@ -272,7 +285,8 @@ class DB_new:
                     full_name = full_name,
                     blocked = False,
                     is_output = False,
-                    is_send_auth = False
+                    is_send_auth = False,
+                    link_for_fiks = ""
             ))
 
 # ------------------------------------------------------ Authorization ---------------------------------------
