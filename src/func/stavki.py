@@ -274,3 +274,4 @@ def runner():
     # print(test("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/search/2040007"))
     # print(setup_place("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/search/2040007"))
     # print(setup_place("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/carousel-auction/1848074"))
+    pass
