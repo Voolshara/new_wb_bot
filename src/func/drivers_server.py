@@ -202,3 +202,4 @@ def repeat_sms(driver_code):
 # Tests
 def test_driver_connection():
     driver = webdriver.Chrome(options=options)
+    driver.close()
