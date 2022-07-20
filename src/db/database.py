@@ -101,14 +101,14 @@ class DB_get:
             return url, place, resp.file_name
 
 
-    def get_place_to_w8(self, telegram_id:str, link:str) -> Optional[list[str]]:
+    def get_place_to_w8(self, telegram_id:str, link:str) -> Optional[list]:
         with create_session() as session:
             resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.url == link, Place.wait_place == True).one_or_none()
             if resp is not None:
                 return resp.id
             return None
 
-    def get_all_places_with_link(self, telegram_id:str, link:str) -> Optional[list[str]]:
+    def get_all_places_with_link(self, telegram_id:str, link:str) -> Optional[list]:
         with create_session() as session:
             resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.link == link).one_or_none()
             if resp is not None:
@@ -120,14 +120,14 @@ class DB_get:
             resp = session.query(Users).filter(Users.telegram_id == telegram_id).one()
             return resp.link_for_fiks
 
-    def get_all_places(self, telegram_id:str) -> Optional[list[str]]:
+    def get_all_places(self, telegram_id:str) -> Optional[list]:
         with create_session() as session:
             resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == False, Place.status == True).all()
             if resp is not None:
                 return [[i.phone, i.url] for i in resp]
             return None
 
-    def get_all_cookies(self, telegram_id:str) -> Optional[list[str]]:
+    def get_all_cookies(self, telegram_id:str) -> Optional[list]:
         with create_session() as session:
             resp = session.query(Cookies).filter(Cookies.telegram_id == telegram_id, Cookies.status == 1).all()
             if resp is not None:
