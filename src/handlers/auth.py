@@ -129,6 +129,8 @@ class Send_phone:
                 keyboard.add(code)
             await bot.send_message(user_id, f"Ошибка со стороны WB \nСообщение от WB: {data['mes']}\nПопробуйте сначала /authorization", reply_markup=keyboard)
             # await Authorization.choose_command_below.set()
+            await DBN.set_driver(user_id, "")
+            await DBN.set_status_of_auth_start(user_id)
             return
 
     async def new_account_procces(self, phone_number, user_id):
@@ -145,7 +147,8 @@ class Send_phone:
             for code in first_keyboard:
                 keyboard.add(code)
             await bot.send_message(user_id, "Начните сначала", reply_markup=keyboard)
-            await Authorization.choose_command_below.set()
+            await DBN.set_driver(user_id, "")
+            await DBN.set_status_of_auth_start(user_id)
     
     async def check_message_send(self, user_id):
         bot = Bot(token="5585095304:AAFYsfIoTD29QSln36yfVpwKVhodzIRlaKs")
@@ -168,60 +171,10 @@ class Send_phone:
 # add new account
 @check_start
 async def new_account(message: types.Message, state: FSMContext):
-    if DBG.get_ready_for_sms_status(message.from_user.id):
-        await Authorization.wait_code.set()
-        await DBN.set_user_send_f(message.from_user.id)
-        code = message.text
-        if code == "Отправить код заново":
-            if DBG.is_resend_not_ready(message.from_user.id):
-                await message.answer("Ещё нет возможности отправить код заново \nНужно подождать около минуты")
-                return
-
-            data = requests.post("http://localhost:4600/new_user", json={
-                "status" : "repeat_sms",
-                "driver_code" : DBG.get_driver(message.from_user.id),
-            }).json()
-
-            if data["status"]:
-                await message.answer("Код отправлен")
-                return
-            await message.answer("Ещё нет возможности отправить код заново \nНужно подождать около минуты")
-            return
-
-        code_reg = re.compile("\d{6}")
-        if len(code_reg.findall(code)) == 0 or len(code) != 6:
-            await message.answer("Неверный код из смс\nВведите ещё раз")
-            return
-        await message.answer("Код принят, подождите немного", reply_markup=types.ReplyKeyboardRemove())
-
-        driver = DBG.get_driver(message.from_user.id)
-        phone = DBG.get_phone(message.from_user.id)
-        
-        data = requests.post("http://localhost:4600/new_user", json={
-            "status" : "sms",
-            "driver_code" : driver,
-            "phone" : phone,
-            "sms" : code,
-        }).json()
-
-
-        if data["status"]:
-            await DBN.add_cookie_file(message.from_user.id, phone, f"cookie{phone}")
-            await message.answer("Готово, аккаунт добавлен", reply_markup=types.ReplyKeyboardRemove())
-            await Authorization.choose_command_below.set()
-        else:
-            if data["mes"] == "Неверный СМС код" or data["mes"] == "Неверные данные доступа":
-                await message.answer(f"Ошибка\nСообщение от WB: {data['mes']}", reply_markup=types.ReplyKeyboardRemove())
-                await message.answer(f"Проверьте смс код и отправьте его снова", reply_markup=types.ReplyKeyboardRemove())
-                return
-            await message.answer(f"Ошибка\nСообщение от WB: {data['mes']}", reply_markup=types.ReplyKeyboardRemove())
-            await DBN.clean_empty_cookies(message.from_user.id) # clean not used cookie
-            await DBN.clean_empty_drivers(message.from_user.id) # clean not used driver
-            keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            for code in first_keyboard:
-                keyboard.add(code)
-            await message.answer("Начните сначала", reply_markup=keyboard)
-            await Authorization.choose_command_below.set()
+    if DBG.get_ready_for_sms_status(message.from_user.id) == 1:
+        await get_sms(message, state)
+    elif DBG.get_ready_for_sms_status(message.from_user.id) == 2:
+        await auth_chosen(message, state)
     else:
         if not DBG.get_user_sms_status(message.from_user.id):
             await DBN.set_user_send(message.from_user.id)

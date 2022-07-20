@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import stat
 import sqlalchemy as sa
 from contextlib import contextmanager
 from sqlalchemy.ext.declarative import declarative_base
@@ -46,14 +47,17 @@ class Users(Base):
     blocked = sa.Column(sa.Boolean())
     is_output = sa.Column(sa.Boolean())
     is_send_auth = sa.Column(sa.Boolean())
-    link_for_fiks = sa.Column(sa.String(50))
+    link_for_fiks = sa.Column(sa.String(500))
 
 class Drivers(Base):
     __tablename__ = 'Drivers'
     id = sa.Column(sa.Integer, primary_key=True)
     telegram_id = sa.Column(sa.String(50))
     driver = sa.Column(sa.String(16))
-    is_ready_for_sms = sa.Column(sa.Boolean)
+    get_phone_status = sa.Column(sa.Integer)
+    # 0 - phone not ready
+    # 1 - phone ready
+    # 2 - state start in auth (auth_chosen)
     code_send_time = sa.Column(sa.DateTime, server_default=func.now())
     is_active = sa.Column(sa.Boolean())
 
@@ -97,9 +101,16 @@ class DB_get:
             return url, place, resp.file_name
 
 
-    def get_all_places_to_w8(self, telegram_id:str) -> Optional[list[str]]:
+    def get_place_to_w8(self, telegram_id:str, link:str) -> Optional[list[str]]:
         with create_session() as session:
-            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.wait_place == True).all()
+            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.url == link, Place.wait_place == True).one_or_none()
+            if resp is not None:
+                return resp.id
+            return None
+
+    def get_all_places_with_link(self, telegram_id:str, link:str) -> Optional[list[str]]:
+        with create_session() as session:
+            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.link == link).one_or_none()
             if resp is not None:
                 return [i.id for i in resp]
             return None
@@ -156,11 +167,10 @@ class DB_get:
 
     def get_ready_for_sms_status(self, telegram_id:str) -> bool:
         with create_session() as session:
-            resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True, Drivers.is_ready_for_sms == True).one_or_none()
+            resp = session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).one_or_none()
             if resp is None:
-                return False
-            return True
-
+                return 0
+            return resp.get_phone_status
 # ------------------------------------------------------ Authorization ---------------------------------------
 
 
@@ -194,22 +204,24 @@ class DB_new:
 
     
     async def new_place_data(self, telegram_id:str, phone:str, url : Optional[str] = None, place : Optional[str] = None, wait_place :Optional[bool] = True):
-        place_ids_to_w8 = self.DBG.get_all_places_to_w8(telegram_id)
-        # print(place_ids_to_w8)
-        with create_session() as session:
-            if len(place_ids_to_w8) == 0:
-                session.add(Place(
-                    telegram_id = str(telegram_id),
-                    phone = phone[2:],
-                    url = url,
-                    place = place,
-                    wait_place = True,
-                    status = True
-                ))
-                return
-            session.query(Place).filter(Place.id == place_ids_to_w8[0]).update({Place.phone : phone[2:]})
+        if self.DBG.get_all_places_with_link(telegram_id, url) is None:
+            place_to_w8 = self.DBG.get_place_to_w8(telegram_id, url)
+            with create_session() as session:
+                if len(place_to_w8) == 0:
+                    session.add(Place(
+                        telegram_id = str(telegram_id),
+                        phone = phone[2:],
+                        url = url,
+                        place = place,
+                        wait_place = True,
+                        status = True
+                    ))
+                    return
+                session.query(Place).filter(Place.id == place_to_w8).update({Place.phone : phone[2:]})
 
-     # происходит наложение телефонов, если сбросить 1 регистрацию и продолжить с другой, то линк запишется на другой телефон
+        else:
+            session.query(Place).filter(Place.url == url).update({Place.phone : phone[2:], Place.wait_place : True, Place.status: False})
+
 
 # ------------------------------------------------------ Authorization ---------------------------------------
     async def set_user_send(self, telegram_id:str) -> None:
@@ -228,7 +240,13 @@ class DB_new:
     async def set_status_of_sms(self, telegram_id:str) -> None:
         with create_session() as session:
             session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).update({
-                Drivers.is_ready_for_sms : True, 
+                Drivers.get_phone_status : 1, 
+            })
+
+    async def set_status_of_auth_start(self, telegram_id:str) -> None:
+        with create_session() as session:
+            session.query(Drivers).filter(Drivers.telegram_id == telegram_id, Drivers.is_active == True).update({
+                Drivers.get_phone_status : 2, 
             })
     
     async def clean_empty_cookies(self, telegram_id:str) -> None:
@@ -272,7 +290,7 @@ class DB_new:
             session.add(Drivers(
             telegram_id = telegram_id,
             driver = driver_code,
-            is_ready_for_sms = False,
+            get_phone_status = 0,
             code_send_time = datetime.now(),
             is_active = True
         ))

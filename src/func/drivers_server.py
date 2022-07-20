@@ -76,6 +76,7 @@ def runner():
 
 
 def phone_handler(phone):
+    # return False, None, "Ошибка WB\nПопробуйте сначала /authorization" 
     global driver_dict
     driver = webdriver.Chrome(options=options)
     # driver = webdriver.Chrome("/usr/local/bin/chromedriver", options=options)  
