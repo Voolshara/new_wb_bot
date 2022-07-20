@@ -15,7 +15,7 @@ set_db = "src.db.set_db:runner"
 stavki = "src.func.stavki:runner"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 aiogram = "^2.21"
 typer = "^0.4.1"
 SQLAlchemy = "^1.4.39"
