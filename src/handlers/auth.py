@@ -1,5 +1,6 @@
-from time import sleep
-from tkinter.messagebox import NO
+from cmath import log
+from inspect import trace
+import logging
 from aiogram import Dispatcher, types, Bot
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
@@ -183,7 +184,6 @@ async def new_account(message: types.Message, state: FSMContext):
                 await message.answer("Неверный номер телефона (см Пример) \nПопоробуйте ещё раз", reply_markup=types.ReplyKeyboardRemove())
                 return 
             await message.answer("Телефон принят, подождите немного", reply_markup=types.ReplyKeyboardRemove())
-            flag = True
             p = multiprocessing.Process(target=Send_phone().process, args=(phone_number, message.from_user.id))
             p.start() 
         else:
@@ -205,7 +205,8 @@ async def get_sms(message: types.Message, state: FSMContext):
                 "status" : "repeat_sms",
                 "driver_code" : DBG.get_driver(message.from_user.id),
             }).json()
-        except:
+        except Exception as e:
+            logging.warning(str(e))
             await message.answer(f"Ошибка на стороне WB\nПопробуйте чуть позже", reply_markup=types.ReplyKeyboardRemove())
             await DBN.clean_empty_cookies(message.from_user.id) # clean not used cookie
             await DBN.clean_empty_drivers(message.from_user.id) # clean not used driver
@@ -232,13 +233,24 @@ async def get_sms(message: types.Message, state: FSMContext):
     driver = DBG.get_driver(message.from_user.id)
     phone = DBG.get_phone(message.from_user.id)
     
-    data = requests.post("http://localhost:4600/new_user", json={
-        "status" : "sms",
-        "driver_code" : driver,
-        "phone" : phone,
-        "sms" : code,
-    }).json()
+    try:
+        data = requests.post("http://localhost:4600/new_user", json={
+            "status" : "sms",
+            "driver_code" : driver,
+            "phone" : phone,
+            "sms" : code,
+        }).json()
 
+    except exception as e:
+        logging.wa
+        await message.answer(f"Ошибка со стороны WB\nПопробуйте чуть позже", reply_markup=types.ReplyKeyboardRemove())
+        await DBN.clean_empty_cookies(message.from_user.id) # clean not used cookie
+        await DBN.clean_empty_drivers(message.from_user.id) # clean not used driver
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for code in first_keyboard:
+            keyboard.add(code)
+        await Authorization.choose_command_below.set()
+        return 
 
     if data["status"]:
         await DBN.add_cookie_file(message.from_user.id, phone, f"cookie{phone}")

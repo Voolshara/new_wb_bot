@@ -207,7 +207,7 @@ class DB_new:
         if self.DBG.get_all_places_with_link(telegram_id, url) is None:
             place_to_w8 = self.DBG.get_place_to_w8(telegram_id, url)
             with create_session() as session:
-                if len(place_to_w8) == 0:
+                if place_to_w8 is None:
                     session.add(Place(
                         telegram_id = str(telegram_id),
                         phone = phone[2:],

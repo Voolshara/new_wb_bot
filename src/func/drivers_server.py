@@ -3,7 +3,7 @@ from flask import Flask, request
 from flask_cors import CORS
 from random import randint
 
-import pickle
+import pickle, sys, traceback
 from typer import Typer 
 
 from selenium import webdriver
@@ -29,7 +29,7 @@ driver_dict = {} # all drivers
 
 options = webdriver.ChromeOptions()                                        
 options.add_argument("no-sandbox")                                         
-options.add_argument('--headless')                                         
+# options.add_argument('--headless')                                         
 options.add_argument("--disable-gpu")                                      
 options.add_argument("--window-size=800,600")                              
 options.add_argument('--ignore-certificate-errors')                        
@@ -126,6 +126,13 @@ def phone_handler(phone):
 def sms_handler(driver_code, phone, sms):
     global driver_dict
     driver = driver_dict[driver_code]
+    try:
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "Accept-code__form-input--OAwQc"))
+        )
+    except Exception as e:
+        logging.warning(str(type(e).__name__) + str(e.args))
+        return False, "WB не отвечает \nпопробуйте чуть позже" 
     login_input = driver.find_element(By.CLASS_NAME, 'Accept-code__form-input--OAwQc')
     login_input.clear()
     login_input.send_keys(sms)
@@ -147,7 +154,7 @@ def sms_handler(driver_code, phone, sms):
         try: # we need this
             print(2)
             WebDriverWait(driver, 60).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "ProfileView"))
+                EC.presence_of_element_located((By.CLASS_NAME, "ProfileView"))
             )
             print(2.1)
             pickle.dump(driver.get_cookies(),
