@@ -110,7 +110,7 @@ class DB_get:
 
     def get_all_places_with_link(self, telegram_id:str, link:str) -> Optional[list]:
         with create_session() as session:
-            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.link == link).one_or_none()
+            resp = session.query(Place).filter(Place.telegram_id == telegram_id, Place.url == link).one_or_none()
             if resp is not None:
                 return [i.id for i in resp]
             return None
