@@ -201,8 +201,4 @@ def repeat_sms(driver_code):
 # ------------------------------------------------------------------------------
 # Tests
 def test_driver_connection():
-    try: 
-        driver = webdriver.Chrome(options=options)
-        return True
-    except:
-        return False
+    driver = webdriver.Chrome(options=options)
