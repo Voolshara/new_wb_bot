@@ -59,7 +59,7 @@ def test(url):
     driver.get(url)
     status_of_load = True
     try: 
-        WebDriverWait(driver, 17).until(
+        WebDriverWait(driver, 60).until(
                                     EC.presence_of_element_located((By.CLASS_NAME, 'card__settings__row__box'))
                                 )
     except:
@@ -129,7 +129,7 @@ async def place_setup_from_tg(url, user_id):
     bot = Bot(token="5585095304:AAFYsfIoTD29QSln36yfVpwKVhodzIRlaKs")
     data = setup_place(url)
     if data is None:
-        await bot.send_message(user_id, f"Ошибка в установке места по ссылке {url}", reply_markup=types.ReplyKeyboardRemove())
+        await bot.send_message(user_id, f"Ошибка в установке места по ссылке {url} со стороны WB\nпопробуйте чуть позже", reply_markup=types.ReplyKeyboardRemove())
         return
     now_place, type_of_place, cost, status = data
     if status == "ERR":
@@ -148,9 +148,7 @@ def setup_place(url):
     
     url, place, cookie_file = info_wb
     last_place = 0
-    driver = webdriver.Chrome(service=Service(
-        ChromeDriverManager().install()),
-        options=options)
+    driver = webdriver.Chrome(options=options)
     driver.get("https://seller.wildberries.ru")
     for cookie in pickle.load(open( f"src/cookies/{cookie_file}", "rb")):
         driver.add_cookie(cookie)
@@ -273,5 +271,6 @@ def setup_place(url):
 
 @runner.command()
 def runner():
-    print(test("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/search/2040007"))
+    # print(test("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/search/2040007"))
+    # print(setup_place("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/search/2040007"))
     # print(setup_place("https://seller.wildberries.ru/cmp/campaigns/list/active/edit/carousel-auction/1848074"))
