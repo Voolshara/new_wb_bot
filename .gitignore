@@ -11,6 +11,7 @@ pnpm-debug.log*
 __pycache__/
 .pytest_cache/
 cookies*
+*.log
 
 # Editor directories and files
 .idea

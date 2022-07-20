@@ -15,7 +15,9 @@ import selenium.common.exceptions as Sel_Exceptions
 from src.db.database import DB_new
 
 
-
+import logging, os
+logging.basicConfig(filename='auth.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=os.environ.get("LOGLEVEL", "INFO"))
+logging.info('RUN auth')
 app = Flask(__name__)
 CORS(app, resources={
     r"/new_user*": {"origins": "*"},

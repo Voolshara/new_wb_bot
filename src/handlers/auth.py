@@ -7,8 +7,6 @@ import re, requests
 from src.db.database import DB_new, DB_get
 from src.func.behavior_decorators import check_start
 import multiprocessing, asyncio
-
-
 # keboards
 first_keyboard = ["Добавить аккаунт", "Удалить аккаунт", "Посмотреть добавленные аккаунты", "Меню"]
 repeat_sms_keyboard = ["Отправить код заново"]

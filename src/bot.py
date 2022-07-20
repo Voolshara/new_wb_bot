@@ -10,7 +10,10 @@ from src.handlers.common import register_handlers_common
 from src.handlers.auth import register_handlers_auth
 from src.handlers.fiks import register_handlers_fiks
 
+import logging, os 
 
+logging.basicConfig(filename='bot.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=os.environ.get("LOGLEVEL", "INFO"))
+logging.info('RUN bot')
 logger = logging.getLogger(__name__)
 run = Typer()
 
